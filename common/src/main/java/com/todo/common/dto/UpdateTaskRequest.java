@@ -1,0 +1,21 @@
+package com.todo.common.dto;
+
+import java.time.LocalDate;
+import java.util.UUID;
+
+public record UpdateTaskRequest(
+        UUID id,
+        @Nullable
+        @Size(min = 1,max = 100, message = "Длина заголовка от 1 до 100 символов")
+        String name,
+        @Nullable
+        @Size(min = 1,max = 100, message = "Длина заголовка от 1 до 100 символов")
+        String description,
+        @Nullable
+        String status,
+        @Nullable
+        LocalDate deadline
+
+
+) {
+}
