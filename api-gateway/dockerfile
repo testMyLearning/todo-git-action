@@ -1,0 +1,40 @@
+# api-gateway/Dockerfile
+FROM openjdk:21-jdk-slim AS build
+
+LABEL maintainer="your-email@example.com"
+LABEL version="1.0"
+LABEL description="API Gateway for Todo Microservices"
+
+WORKDIR /app
+
+# Кэширование зависимостей
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+COPY common/pom.xml common/
+COPY api-gateway/pom.xml api-gateway/
+
+RUN ./mvnw dependency:go-offline -B
+
+# Копируем исходники
+COPY common common
+COPY api-gateway api-gateway
+
+# Сборка
+RUN ./mvnw clean package -pl api-gateway -am -DskipTests
+
+# Финальный образ
+FROM openjdk:21-jdk-slim
+
+RUN addgroup --system --gid 1001 appuser && \
+    adduser --system --uid 1001 --gid 1001 appuser
+
+COPY --from=build --chown=appuser:appuser /app/api-gateway/target/*.jar /app/app.jar
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

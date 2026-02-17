@@ -30,36 +30,10 @@ public interface TaskMapper {
      */
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "status", constant = "ACTIVE")
-    @Mapping(target = "userId", source = "userId")
+    @Mapping(target = "userId", ignore = true)
     @Mapping(target = "createdAt", expression = "java(java.time.LocalDateTime.now())")
     @Mapping(target = "dateTimeOfCompletion", ignore = true)
-    Task toEntity(CreateTaskRequest request, @Context Long userId);
+    Task toEntity(CreateTaskRequest request);
 
-    /**
-     * Обновление существующей задачи из запроса
-     * Обновляются только не-null поля
-     */
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "dateTimeOfCompletion", ignore = true)
-    void updateTaskFromRequest(UpdateTaskRequest request, @MappingTarget Task task);
 
-    /**
-     * Кастомный метод для обновления статуса с бизнес-логикой
-     */
-    default void updateTaskStatus(Task task, String newStatus) {
-        if (newStatus == null) return;
-
-        StatusTask status = StatusTask.valueOf(newStatus);
-
-        if (status == StatusTask.COMPLETED) {
-            task.setDateTimeOfCompletion(java.time.LocalDateTime.now());
-        } else if (task.getStatus() == StatusTask.COMPLETED && status != StatusTask.COMPLETED) {
-            task.setDateTimeOfCompletion(null);
-        }
-
-        task.setStatus(status);
-    }
 }

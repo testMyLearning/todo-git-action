@@ -4,6 +4,7 @@ import com.todo.common.dto.CreateTaskRequest;
 import com.todo.common.dto.TaskDto;
 import com.todo.common.dto.UpdateTaskRequest;
 import com.todo.common.dto.UserDto;
+import com.todo.common.enums.StatusTask;
 import com.todo.task.client.UserServiceClient;
 import com.todo.task.entity.Task;
 import com.todo.task.mapper.TaskMapper;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,11 +61,9 @@ public class TaskService {
     public TaskDto createTask(CreateTaskRequest request, Long userId) {
         log.info("Creating task for user: {}", userId);
 
-        // Проверяем, что пользователь существует
-        UserDto user = userServiceClient.getUserById(userId);
-
         // Используем маппер для создания Entity
-        Task task = taskMapper.toEntity(request, userId);
+        Task task = taskMapper.toEntity(request);
+        task.setUserId(userId);
         task = taskRepository.save(task);
 
         log.info("Task created with id: {}", task.getId());
@@ -75,18 +75,50 @@ public class TaskService {
      */
     @Transactional
     public TaskDto updateTask(UUID taskId, UpdateTaskRequest request, Long userId) {
+        log.info("Updating task: {} for user: {}", taskId, userId);
+
+        // 1. Проверяем права
         Task task = findTaskForUser(taskId, userId);
 
-        // Используем маппер для обновления полей
-        taskMapper.updateTaskFromRequest(request, task);
+        // 2. Обновляем простые поля
+        if (request.name() != null && !request.name().isBlank()) {
+            task.setName(request.name());
+        }
+        if (request.description() != null && !request.description().isBlank()) {
+            task.setDescription(request.description());
+        }
+        if (request.deadline() != null) {
+            // Можно добавить валидацию дедлайна
+            task.setDeadline(request.deadline());
+        }
 
-        // Отдельно обрабатываем статус (с бизнес-логикой)
+        // 3. Обновляем статус с бизнес-логикой
         if (request.status() != null) {
-            taskMapper.updateTaskStatus(task, request.status());
+            updateTaskStatus(task, request.status());
         }
 
         task = taskRepository.save(task);
+        log.info("Task updated successfully");
+
         return taskMapper.toDto(task);
+    }
+
+    private void updateTaskStatus(Task task, String newStatusStr) {
+        StatusTask newStatus = StatusTask.valueOf(newStatusStr);
+
+        // Если статус не меняется - ничего не делаем
+        if (task.getStatus() == newStatus) return;
+
+        // Логика переключения статуса
+        if (newStatus == StatusTask.COMPLETED) {
+            // Активируем дату завершения
+            task.setDateTimeOfCompletion(LocalDateTime.now());
+        } else {
+            // Убираем дату завершения
+            task.setDateTimeOfCompletion(null);
+        }
+
+        task.setStatus(newStatus);
     }
 
     /**

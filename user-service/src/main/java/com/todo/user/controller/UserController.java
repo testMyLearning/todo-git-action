@@ -51,6 +51,12 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    //TODO нет методов апдейт и делет
+
+
+
+
+
     /**
      * Получение пользователя по ID (для внутренних вызовов)
      * GET /api/users/{id}

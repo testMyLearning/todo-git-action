@@ -5,13 +5,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Component
 @Slf4j
-public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter> {
+public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
     private final JwtService jwtService;
 
@@ -82,5 +86,19 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             return bearerToken.substring(7);
         }
         return null;
+    }
+    public static class Config {
+        // Пустой конфиг, можно добавить параметры
+        private boolean enabled = true;
+        private List<String> publicPaths = List.of("/api/auth/**");
+
+        // Геттеры и сеттеры
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public List<String> getPublicPaths() { return publicPaths; }
+        public void setPublicPaths(List<String> publicPaths) {
+            this.publicPaths = publicPaths;
+        }
     }
 }

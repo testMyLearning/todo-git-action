@@ -1,5 +1,8 @@
 package com.todo.common.dto;
 
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 import java.util.UUID;
 
