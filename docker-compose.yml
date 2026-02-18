@@ -1,12 +1,33 @@
+version: '3.8'
+
+networks:
+  microservices-net:
+    driver: overlay
+
+volumes:
+  user-data:
+  task-data:
+
+secrets:
+  db_user:
+    external: true  # Говорим Compose, что секрет уже создан в Swarm извне
+  db_password:
+    external: true
+  jwt_secret:
+    external: true
 
 services:
-  # Базы данных
+  # ==================== БАЗЫ ДАННЫХ ====================
   postgres-user:
-    image: postgres:17
+    image: postgres:15.8
+    secrets:
+      - db_user
+      - db_password
+      - jwt_secret
     environment:
       POSTGRES_DB: user_db
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     ports:
       - "5433:5432"
     volumes:
@@ -14,108 +35,75 @@ services:
     networks:
       - microservices-net
     deploy:
-        replicas: 1  # База данных обычно одна (репликация БД - сложная тема)
-        restart_policy:
-          condition: on-failure  # Перезапустить, если упадет
-          delay: 5s              # Подождать 5 секунд перед перезапуском
-          max_attempts: 3        # Не больше 3 попыток
-        placement:
-          constraints: # Ограничения на размещение
-            - node.role == manager  # Запускать только на менеджере (где у нас данные)
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
   postgres-task:
-    image: postgres:17
+    image: postgres:15.8
     environment:
       POSTGRES_DB: task_db
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     ports:
       - "5434:5432"
     volumes:
       - task-data:/var/lib/postgresql/data
     networks:
-        - microservices-net
+      - microservices-net
     deploy:
-        replicas: 1
-        restart_policy:
-          condition: on-failure
-        placement:
-          constraints:
-            - node.role == manager
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
-  # Микросервисы
+  # ==================== МИКРОСЕРВИСЫ ====================
   user-service:
     build:
       context: .
-      dockerfile : user-service/dockerfile
-    image: user-service:latest  # тег для образа
+      dockerfile: user-service/Dockerfile  # обрати внимание на заглавную D
+    image: user-service:latest
     ports:
       - "8081:8081"
     depends_on:
       - postgres-user
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_USERNAME_FILE: /run/secrets/db_user
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
     networks:
       - microservices-net
     deploy:
-      replicas: 2  # Запустим 2 экземпляра для надежности
+      replicas: 1  # пока 1, чтобы легче отлаживать
       restart_policy:
         condition: on-failure
-        delay: 10s
-        max_attempts: 3
-      update_config: # Настройки обновления
-        parallelism: 1      # Обновлять по одному контейнеру
-        delay: 10s         # Пауза между обновлениями
-        order: start-first  # Сначала запустить новый, потом остановить старый
-      resources: # Ограничение ресурсов (ОЧЕНЬ ВАЖНО!)
-        limits:
-          cpus: '0.5'      # Не больше 50% CPU
-          memory: 512M     # Не больше 512MB RAM
-        reservations:
-          cpus: '0.25'     # Минимум 25% CPU
-          memory: 256M     # Минимум 256MB RAM
-
 
   task-service:
     build:
-      context: .  # корень проекта
-      dockerfile: task-service/dockerfile
+      context: .
+      dockerfile: task-service/Dockerfile
     image: task-service:latest
     ports:
       - "8082:8082"
     depends_on:
       - postgres-task
-      - user-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-task:5432/task_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_USERNAME_FILE: /run/secrets/db_user
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
       USER_SERVICE_URL: http://user-service:8081
     networks:
       - microservices-net
-
     deploy:
-        replicas: 2
-        restart_policy:
-          condition: on-failure
-        update_config:
-          parallelism: 1
-          delay: 10s
-          order: start-first
-        resources:
-          limits:
-            cpus: '0.5'
-            memory: 512M
-          reservations:
-            cpus: '0.25'
-            memory: 256M
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
   api-gateway:
     build:
-      context: .  # корень проекта
-      dockerfile: api-gateway/dockerfile
+      context: .
+      dockerfile: api-gateway/Dockerfile
     image: api-gateway:latest
     ports:
       - "8080:8080"
@@ -128,49 +116,22 @@ services:
     networks:
       - microservices-net
     deploy:
-        replicas: 2  # Gateway тоже можно масштабировать
-        restart_policy:
-          condition: on-failure
-        update_config:
-          parallelism: 1
-          delay: 10s
-          order: start-first
-        resources:
-          limits:
-            cpus: '0.5'
-            memory: 512M
-          reservations:
-            cpus: '0.25'
-            memory: 256M
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
-  # Фронтенд
   frontend:
     build:
       context: ./frontend
-      dockerfile: dockerfile
+      dockerfile: Dockerfile
     image: frontend:latest
     ports:
       - "3000:80"
     networks:
       - microservices-net
     depends_on:
-        - api-gateway
+      - api-gateway
     deploy:
-        replicas: 1  # Фронтенд пока без реплик
-        restart_policy:
-          condition: on-failure
-        resources:
-          limits:
-            cpus: '0.2'
-            memory: 128M
-          reservations:
-            cpus: '0.1'
-            memory: 64M
-
-volumes:
-  user-data:
-  task-data:
-
-networks:
-  microservices-net:
-    driver: overlay  # overlay сеть работает на всех нодах кластера
+      replicas: 1
+      restart_policy:
+        condition: on-failure

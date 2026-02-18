@@ -1,9 +1,9 @@
 package com.todo.user.service;
 
-import com.todo.common.dto.AuthRequest;
+
 import com.todo.common.dto.AuthResponse;
 import com.todo.common.dto.UserDto;
-import com.todo.common.enums.Role;
+
 import com.todo.common.security.JwtService;
 import com.todo.user.entity.User;
 import com.todo.user.repository.UserRepository;

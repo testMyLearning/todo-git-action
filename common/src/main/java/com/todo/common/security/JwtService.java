@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
@@ -25,11 +28,14 @@ public class JwtService {
 
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
+    private final String jwtSecret;
+    public JwtService() {
+        jwtSecret= SecretService.getSecret("jwt_secret");
+        jwtExpirationMs = 86400000;
+        log.info("✅ JwtService initialized with secret from /run/secrets/jwt_secret");
+    }
 
-    @Value("${jwt.expiration}")
-    private long jwtExpirationMs;
+    private final long jwtExpirationMs;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));

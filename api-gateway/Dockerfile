@@ -1,7 +1,7 @@
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
+ARG VERSION=1.0.0
 
-# Копируем Maven wrapper и родительский POM
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
@@ -14,14 +14,13 @@ RUN ./mvnw clean install -N -DskipTests
 COPY common common
 RUN ./mvnw -f common/pom.xml clean install -DskipTests
 
-# Собираем user-service
-COPY user-service user-service
-RUN ./mvnw -f user-service/pom.xml clean package -DskipTests
+# Собираем api-gateway
+COPY api-gateway api-gateway
+RUN ./mvnw -f api-gateway/pom.xml clean package -DskipTests
 
-# Ищем JAR для user-service
-RUN cp /app/user-service/target/user-service-*.jar /app/app.jar
+
 
 FROM eclipse-temurin:21-jre-alpine
-COPY --from=build /app/user-service/target/*.jar /app.jar
-EXPOSE 8081
+COPY --from=build /app/api-gateway/target/api-gateway-${VERSION}.jar /app.jar
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app.jar"]

@@ -1,7 +1,6 @@
 package com.todo.gateway.filter;
 
 import com.todo.common.security.JwtService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -9,10 +8,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
-import java.util.Arrays;
-import java.util.List;
-
+/**
+ * Фильтр для проверки JWT токенов
+ *
+ * Зачем:
+ * 1. Проверяет валидность JWT токена для защищенных путей
+ * 2. Пропускает публичные пути (/api/auth/register, /api/auth/login)
+ * 3. Извлекает данные пользователя и добавляет заголовки
+ */
 @Component
 @Slf4j
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
@@ -28,26 +34,28 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+            String path = request.getPath().toString();
 
-            // Пропускаем публичные пути
-            if (isPublicPath(request.getPath().toString())) {
-                log.debug("Public path: {}", request.getPath());
+            // Пропускаем публичные пути (регистрация и вход)
+            if (isPublicPath(path)) {
+                log.debug("Public path: {}, skipping authentication", path);
                 return chain.filter(exchange);
             }
+
+            // Для защищенных путей - проверяем токен
+            log.debug("Protected path: {}, checking authentication", path);
 
             // Извлекаем токен
             String token = extractToken(request);
             if (token == null) {
-                log.warn("No token found in request");
-                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                return exchange.getResponse().setComplete();
+                log.warn("No token found for protected path: {}", path);
+                return unauthorizedResponse(exchange, "No token provided");
             }
 
-            // Проверяем токен
+            // Проверяем валидность токена
             if (!jwtService.validateToken(token)) {
-                log.warn("Invalid token: {}", token);
-                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                return exchange.getResponse().setComplete();
+                log.warn("Invalid token for path: {}", path);
+                return unauthorizedResponse(exchange, "Invalid token");
             }
 
             // Извлекаем данные из токена
@@ -56,7 +64,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 Long userId = jwtService.getUserIdFromToken(token);
                 String role = jwtService.getRoleFromToken(token);
 
-                log.debug("Authenticated user: {}, role: {}", email, role);
+                log.debug("Authenticated user: {}, role: {} for path: {}", email, role, path);
 
                 // Добавляем заголовки для downstream сервисов
                 ServerHttpRequest mutatedRequest = request.mutate()
@@ -68,18 +76,23 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
             } catch (Exception e) {
-                log.error("Error processing token", e);
-                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                return exchange.getResponse().setComplete();
+                log.error("Error processing token for path: {}", path, e);
+                return unauthorizedResponse(exchange, "Error processing token");
             }
         };
     }
 
+    /**
+     * Проверка, является ли путь публичным (не требует токена)
+     */
     private boolean isPublicPath(String path) {
-        return path.startsWith("/api/auth/register") ||
-                path.startsWith("/api/auth/login");
+        return path.contains("/api/auth/register") ||
+                path.contains("/api/auth/login");
     }
 
+    /**
+     * Извлечение JWT токена из заголовка Authorization
+     */
     private String extractToken(ServerHttpRequest request) {
         String bearerToken = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
@@ -87,18 +100,21 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         }
         return null;
     }
+
+    /**
+     * Возврат 401 Unauthorized ответа
+     */
+    private Mono<Void> unauthorizedResponse(ServerWebExchange exchange, String message) {
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse().setComplete();
+    }
+
+    /**
+     * Конфигурация фильтра (может быть расширена при необходимости)
+     */
     public static class Config {
-        // Пустой конфиг, можно добавить параметры
-        private boolean enabled = true;
-        private List<String> publicPaths = List.of("/api/auth/**");
-
-        // Геттеры и сеттеры
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
-
-        public List<String> getPublicPaths() { return publicPaths; }
-        public void setPublicPaths(List<String> publicPaths) {
-            this.publicPaths = publicPaths;
-        }
+        // Можно добавить настройки, например:
+        // private List<String> publicPaths;
+        // private boolean enabled = true;
     }
 }
