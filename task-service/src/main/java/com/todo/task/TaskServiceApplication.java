@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication(scanBasePackages = {
-        "com.todo.gateway",  // сканирует твой код
+        "com.todo.task",  // сканирует твой код
         "com.todo.common"    // сканирует код из common модуля!
 })
 @EnableFeignClients

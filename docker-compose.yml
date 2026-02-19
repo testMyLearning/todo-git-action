@@ -23,11 +23,12 @@ services:
     secrets:
       - db_user
       - db_password
-      - jwt_secret
     environment:
       POSTGRES_DB: user_db
-      POSTGRES_USER_FILE: /run/secrets/db_user
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_USER: postgres        # ← ОБЯЗАТЕЛЬНО!
+      POSTGRES_PASSWORD: postgres
+      #POSTGRES_USER_FILE: /run/secrets/db_user
+      #POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     ports:
       - "5433:5432"
     volumes:
@@ -46,8 +47,10 @@ services:
       - db_password
     environment:
       POSTGRES_DB: task_db
-      POSTGRES_USER_FILE: /run/secrets/db_user
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_USER: postgres        # ← ОБЯЗАТЕЛЬНО!
+      POSTGRES_PASSWORD: postgres
+      #POSTGRES_USER_FILE: /run/secrets/db_user
+      #POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     ports:
       - "5434:5432"
     volumes:

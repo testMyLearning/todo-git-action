@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record AuthRequest(
-        @NotBlank(message = "Имя обязательно")
+
         @Size(min = 2, max = 50, message = "Имя от 2 до 50 символов")
         String name,
 

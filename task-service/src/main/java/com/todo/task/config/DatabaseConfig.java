@@ -17,7 +17,6 @@ public class DatabaseConfig {
     public DataSource dataSource(){
         return DataSourceBuilder.create()
                 .url("jdbc:postgresql://postgres-task:5432/task_db")
-
                 .username(SecretService.getSecret("db_user"))
                 .password(SecretService.getSecret("db_password"))
                 .driverClassName("org.postgresql.Driver")

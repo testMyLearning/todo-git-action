@@ -5,7 +5,6 @@ import com.todo.common.dto.TaskDto;
 import com.todo.common.dto.UpdateTaskRequest;
 import com.todo.common.dto.UserDto;
 import com.todo.common.enums.StatusTask;
-import com.todo.task.client.UserServiceClient;
 import com.todo.task.entity.Task;
 import com.todo.task.mapper.TaskMapper;
 import com.todo.task.repository.TaskRepository;
@@ -29,7 +28,6 @@ import java.util.UUID;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final UserServiceClient userServiceClient;
     private final TaskMapper taskMapper;  // ← инжектим маппер
 
     /**
@@ -38,9 +36,6 @@ public class TaskService {
     public List<TaskDto> getUserTasks(Long userId) {
         log.info("Getting tasks for user: {}", userId);
 
-        // Проверяем, что пользователь существует
-        UserDto user = userServiceClient.getUserById(userId);
-        log.debug("User found: {}", user);
 
         List<Task> tasks = taskRepository.findByUserId(userId);
         return taskMapper.toDtoList(tasks);  // ← используем маппер для списка

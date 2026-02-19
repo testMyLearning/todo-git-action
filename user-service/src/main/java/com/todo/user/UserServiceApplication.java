@@ -5,7 +5,11 @@ import org.springframework.boot.actuate.autoconfigure.security.servlet.Managemen
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 
-@SpringBootApplication(exclude = {SecurityAutoConfiguration.class,
+@SpringBootApplication(scanBasePackages = {
+        "com.todo.user",
+        "com.todo.common"  // ← ВАЖНО!
+},
+        exclude = {SecurityAutoConfiguration.class,
                 ManagementWebSecurityAutoConfiguration.class})
 public class UserServiceApplication {
     public static void main(String[] args) {
