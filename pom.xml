@@ -29,6 +29,7 @@
         <lombok.version>1.18.36</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <jjwt.version>0.12.6</jjwt.version>
+
     </properties>
 
     <modules>
@@ -36,6 +37,7 @@
         <module>user-service</module>
         <module>task-service</module>
         <module>api-gateway</module>
+        <module>eureka-server</module>
     </modules>
 
     <dependencyManagement>

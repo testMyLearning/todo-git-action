@@ -1,0 +1,23 @@
+server:
+  port: 8761  # Стандартный порт для Eureka
+
+spring:
+  application:
+    name: eureka-server
+
+eureka:
+  instance:
+    hostname: eureka-server  # Имя хоста в Docker сети
+  client:
+    register-with-eureka: false  # Сервер НЕ регистрируется сам в себе
+    fetch-registry: false        # Серверу не нужно получать реестр
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    enable-self-preservation: false  # Отключаем режим самосохранения (для разработки)
+    eviction-interval-timer-in-ms: 5000  # Проверять мертвые сервисы каждые 5 сек
+
+logging:
+  level:
+    com.netflix.eureka: DEBUG
+    com.netflix.discovery: DEBUG

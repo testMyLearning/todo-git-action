@@ -8,52 +8,31 @@ spring:
     web-application-type: reactive
   cloud:
     gateway:
-      globalcors:
-        add-to-simple-url-handler-mapping: true
-        cors-configurations:
-          '[/**]':
-            allowed-origins:
-              - "http://localhost:3000"
-              - "http://127.0.0.1:3000"
-            allowed-methods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-              - PATCH
-            allowed-headers:
-              - Authorization
-              - Content-Type
-            allow-credentials: true
-            exposed-headers:
-              - Authorization
-              - X-User-Id
+      discovery:
+        locator:
+          enabled: true  # Автоматическое создание роутов через discovery
+          lower-case-service-id: true
       routes:
-        # 1. ПУБЛИЧНЫЕ РОУТЫ (без JWT)
-        - id: public-auth
-          uri: http://user-service:8081
-          predicates:
-            - Path=/api/auth/register, /api/auth/login
-          filters:
-            - RewritePath=/api/auth/(?<path>.*), /api/users/$\{path}
+          - id: user-service
+            uri: lb://user-service  # ← lb:// означает "через Eureka с балансировкой"
+            predicates:
+              - Path=/api/users/**
+            filters:
+              - name: JwtAuthenticationFilter
 
+          - id: task-service
+            uri: lb://task-service  # ← Тоже через Eureka
+            predicates:
+              - Path=/api/tasks/**
+            filters:
+              - name: JwtAuthenticationFilter
 
-
-        # 2. ЗАЩИЩЕННЫЕ РОУТЫ (с JWT)
-        - id: user-service
-          uri: http://user-service:8081
-          predicates:
-            - Path=/api/users/**
-          filters:
-            - name: JwtAuthenticationFilter
-
-        - id: task-service
-          uri: http://task-service:8082
-          predicates:
-            - Path=/api/tasks/**
-          filters:
-            - name: JwtAuthenticationFilter
+          - id: public-auth
+            uri: lb://user-service  # ← И публичные роуты тоже
+            predicates:
+              - Path=/api/auth/register, /api/auth/login
+            filters:
+              - RewritePath=/api/auth/(?<path>.*), /api/users/${path}
 
 
 management:
@@ -61,7 +40,17 @@ management:
     web:
       exposure:
         include: health,info
-
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/  # ← АДРЕС EUREKA
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: ${HOSTNAME:api-gateway}
+    prefer-ip-address: true  # Регистрироваться по IP, а не по hostname
+    lease-renewal-interval-in-seconds: 30  # Частота отправки heartbeats
+    lease-expiration-duration-in-seconds: 90  # Через сколько удалить, если нет heartbeats
 
 
 logging:

@@ -20,7 +20,17 @@ management:
     web:
       exposure:
         include: health,info
-
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/  # ← АДРЕС EUREKA
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: ${HOSTNAME:user-service}
+    prefer-ip-address: true  # Регистрироваться по IP, а не по hostname
+    lease-renewal-interval-in-seconds: 30  # Частота отправки heartbeats
+    lease-expiration-duration-in-seconds: 90  # Через сколько удалить, если нет heartbeats
 
 logging:
   level:
