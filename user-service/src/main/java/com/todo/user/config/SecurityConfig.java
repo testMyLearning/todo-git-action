@@ -40,7 +40,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())  // Явное отключение CSRF// Опционально: включите, если используете CORS
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/register", "/api/users/login").permitAll()
-                    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                    .requestMatchers("/actuator/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: api-gateway
+  profiles:
+    include:
+      - actuator
   main:
     web-application-type: reactive
   cloud:
@@ -13,33 +16,29 @@ spring:
           enabled: true  # Автоматическое создание роутов через discovery
           lower-case-service-id: true
       routes:
-          - id: user-service
-            uri: lb://user-service  # ← lb:// означает "через Eureka с балансировкой"
-            predicates:
-              - Path=/api/users/**
-            filters:
-              - name: JwtAuthenticationFilter
+        - id: user-service
+          uri: lb://user-service  # ← ЯВНО с балансировкой!
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: JwtAuthenticationFilter
 
-          - id: task-service
-            uri: lb://task-service  # ← Тоже через Eureka
-            predicates:
-              - Path=/api/tasks/**
-            filters:
-              - name: JwtAuthenticationFilter
+        - id: task-service
+          uri: lb://task-service  # ← ЯВНО с балансировкой!
+          predicates:
+            - Path=/api/tasks/**
+          filters:
+            - name: JwtAuthenticationFilter
 
-          - id: public-auth
-            uri: lb://user-service  # ← И публичные роуты тоже
-            predicates:
-              - Path=/api/auth/register, /api/auth/login
-            filters:
-              - RewritePath=/api/auth/(?<path>.*), /api/users/${path}
+        - id: public-auth
+          uri: lb://user-service  # ← ТОЖЕ С БАЛАНСИРОВКОЙ!
+          predicates:
+            - Path=/api/auth/register, /api/auth/login
+          filters:
+            - RewritePath=/api/auth/(?<path>.*), /api/users/$\{path}
 
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+
 eureka:
   client:
     service-url:

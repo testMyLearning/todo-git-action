@@ -1,4 +1,3 @@
-version: '3.8'
 
 networks:
   microservices-net:
@@ -168,6 +167,24 @@ services:
       - microservices-net
     depends_on:
       - api-gateway
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+  admin-server:
+    build:
+      context: .
+      dockerfile: admin-server/Dockerfile
+    image: admin-server:latest
+    ports:
+      - "9090:9090"  # Порт для доступа к UI
+    depends_on:
+      - eureka-server
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_BOOT_ADMIN_DISCOVERY_ENABLED: "true"
+    networks:
+      - microservices-net
     deploy:
       replicas: 1
       restart_policy:

@@ -18,6 +18,7 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()  // Все запросы разрешены (JWT проверяется в Gateway)
                 )
                 .sessionManagement(session -> session

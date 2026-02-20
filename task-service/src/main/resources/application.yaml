@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: task-service
+  profiles:
+    include:
+      - actuator
 
 
   jpa:
@@ -14,12 +17,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
 
 user-service:
   url: http://user-service:8081

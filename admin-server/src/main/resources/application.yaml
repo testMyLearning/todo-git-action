@@ -1,0 +1,41 @@
+server:
+  port: 9090  # Отдельный порт для админки
+
+spring:
+  application:
+    name: admin-server
+  boot:
+    admin:
+      discovery:
+        enabled: true  # Автоматически находить сервисы через Eureka
+        ignored-services: admin-server  # Не отслеживать самого себя
+      ui:
+        title: Todo Microservices Admin
+        brand: <img src="assets/img/icon-spring-boot-admin.svg"><span>Todo Admin</span>
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: ${HOSTNAME:admin-server}
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# Включаем все эндпоинты для метрик
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # Включаем все эндпоинты
+  endpoint:
+    health:
+      show-details: always  # Показывать детали здоровья
+
+logging:
+  level:
+    de.codecentric.boot.admin: DEBUG
+    com.netflix.discovery: INFO

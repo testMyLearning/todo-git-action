@@ -1,0 +1,74 @@
+
+networks:
+  microservices-net:
+    external: true
+    name: todo_microservices-net
+
+services:
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: victoriametrics
+    ports:
+      - "8428:8428"  # API для запросов
+      - "8429:8429"  # Интерфейс администрирования
+    volumes:
+      - ./monitoring/victoriametrics/prometheus.yaml:/etc/prometheus/prometheus.yaml
+      - victoriametrics-data:/victoria-metrics-data
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-httpListenAddr=:8428"
+      - "-promscrape.config=/etc/prometheus/prometheus.yaml"
+    networks:
+      - microservices-net
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - microservices-net
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yaml
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - microservices-net
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"  # Не конфликтует с твоим фронтендом на 3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - microservices-net
+    depends_on:
+      - victoriametrics
+      - loki
+    restart: unless-stopped
+
+volumes:
+  victoriametrics-data:
+  loki-data:
+  grafana-data:

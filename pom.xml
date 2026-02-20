@@ -38,6 +38,7 @@
         <module>task-service</module>
         <module>api-gateway</module>
         <module>eureka-server</module>
+        <module>admin-server</module>
     </modules>
 
     <dependencyManagement>
