@@ -9,6 +9,9 @@ management:
       prometheus:
         enabled: true
   metrics:
+    enable:
+      jdbc: true
+      hicaricp: true
     export:
       prometheus:
         enabled: true

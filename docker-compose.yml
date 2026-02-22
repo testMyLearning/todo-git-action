@@ -159,6 +159,9 @@ services:
       - microservices-net
     deploy:
       replicas: 1
+      resources:
+        limits:
+          memory: 1G
       restart_policy:
         condition: on-failure
 
