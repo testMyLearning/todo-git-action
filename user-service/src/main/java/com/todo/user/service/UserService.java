@@ -1,11 +1,15 @@
 package com.todo.user.service;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todo.common.dto.AuthResponse;
 import com.todo.common.dto.UserDto;
 
 import com.todo.common.security.JwtService;
+import com.todo.user.entity.OutboxEvent;
 import com.todo.user.entity.User;
+import com.todo.user.event.UserCreatedEvent;
+import com.todo.user.repository.OutboxRepository;
 import com.todo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +32,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;  // создадим дальше
+    private final OutboxRepository outboxRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * Регистрация нового пользователя
@@ -42,7 +48,18 @@ public class UserService {
         // Создаем пользователя
         User user = new User(name, email, passwordEncoder.encode(password));
         user = userRepository.save(user);
+        UserCreatedEvent event = new UserCreatedEvent(user.getId(),user.getEmail(),user.getName(),user.getRole().name());
+try{
+    OutboxEvent outboxEvent = new OutboxEvent();
+    outboxEvent.setAggregateId(user.getId());
+    outboxEvent.setEventType(event.getEventType());
+    outboxEvent.setPayload(objectMapper.writeValueAsString(event));
+    outboxRepository.save(outboxEvent);
+}catch (Exception e){
+    throw new RuntimeException("Ошибка при отправке сообщения в outbox");
+}
 
+// Отправляем событие о регистрации в RabbitMQ);
         // Генерируем JWT токен
         String token = jwtService.generateToken(user.getEmail(),user.getId(),user.getName(),user.getRole());
 

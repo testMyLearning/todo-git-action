@@ -60,7 +60,8 @@ public class TaskServiceAsync {
         task.setUserId(userId);
         return taskRepository.saveAsync(task).thenApply(taskMapper::toDto);
     }
-
+    @Async
+    @Transactional
     public CompletableFuture<List<TaskDto>> find(@Valid TaskFilterDto request) {
         if (request.status() != null && request.userId() != null) {
             return taskRepository.findTaskByStatusAndUserId(request.status(), request.userId()).thenApply(taskMapper::toDtoList);
