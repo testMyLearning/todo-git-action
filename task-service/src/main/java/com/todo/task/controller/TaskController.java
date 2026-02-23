@@ -2,6 +2,7 @@ package com.todo.task.controller;
 
 import com.todo.common.dto.CreateTaskRequest;
 import com.todo.common.dto.TaskDto;
+import com.todo.common.dto.TaskFilterDto;
 import com.todo.common.dto.UpdateTaskRequest;
 import com.todo.common.dtoAsync.PageResponse;
 import com.todo.task.service.TaskService;
@@ -19,20 +20,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-@RequestMapping("/api/tasks")
+@RequestMapping("/api/tasks/async")
 @RequiredArgsConstructor
 public class TaskController {
 
     private static final Logger log = LoggerFactory.getLogger(TaskController.class);
-    private final TaskService taskService;
     private final TaskServiceAsync taskServiceAsync;
 
-    /**
-     * Получить все задачи текущего пользователя
-     * GET /api/tasks
-     */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    @RequestMapping("/async")
+
     public CompletableFuture<ResponseEntity<PageResponse<TaskDto>>> getUserTasks(
             @RequestHeader("X-User-Id") Long userId,
             @RequestParam(defaultValue = "0") int page,
@@ -48,29 +44,7 @@ public class TaskController {
     }
 
 
-    /**
-     * Получить задачу по ID
-     * GET /api/tasks/{id}
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<TaskDto> getTask(
-            @PathVariable UUID id,
-            @RequestHeader("X-User-Id") Long userId) {
-        return ResponseEntity.ok(taskService.getTask(id, userId));
-    }
-
-    /**
-     * Создать новую задачу
-     * POST /api/tasks
-     */
-    @PostMapping
-    public ResponseEntity<TaskDto> createTask(
-            @Valid @RequestBody CreateTaskRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
-        return ResponseEntity.ok(taskService.createTask(request, userId));
-    }
 @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-@RequestMapping("/async")
 public CompletableFuture<ResponseEntity<TaskDto>> create(
         @Valid @RequestBody CreateTaskRequest request,
         @RequestHeader("X-User-Id") Long userId
@@ -82,27 +56,13 @@ public CompletableFuture<ResponseEntity<TaskDto>> create(
                 }
         );
 }
-    /**
-     * Обновить задачу
-     * PATCH /api/tasks/{id}
-     */
-    @PatchMapping("/{id}")
-    public ResponseEntity<TaskDto> updateTask(
-            @PathVariable UUID id,
-            @Valid @RequestBody UpdateTaskRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
-        return ResponseEntity.ok(taskService.updateTask(id, request, userId));
-    }
+@GetMapping("/update")
+    public CompletableFuture<ResponseEntity<List<TaskDto>>> findByStatusAndUserId(
+            @Valid @RequestBody TaskFilterDto request) {
+        return taskServiceAsync.find(request).thenApply(ResponseEntity::ok).exceptionally(trow->{
+            log.error("Ошибка в контроллере при поиске задач по статусу и юзеру");
+            return ResponseEntity.status(500).build();
+        });
+            }
 
-    /**
-     * Удалить задачу
-     * DELETE /api/tasks/{id}
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTask(
-            @PathVariable UUID id,
-            @RequestHeader("X-User-Id") Long userId) {
-        taskService.deleteTask(id, userId);
-        return ResponseEntity.noContent().build();
-    }
 }
