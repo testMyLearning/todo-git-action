@@ -5,9 +5,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
+
 @Setter
 @Getter
-@NoArgsConstructor
 public class UserCreatedEvent extends BaseEvent {
     private Long userId;
     private String email;
@@ -15,8 +16,7 @@ public class UserCreatedEvent extends BaseEvent {
     private String role;
 
     public UserCreatedEvent(Long userId, String email, String name, String role) {
-        this.eventType = "USER_CREATED";
-        this.aggregateId = userId;
+        super(String.valueOf(userId),"USER_CREATED", Instant.now(),"user-service");
         this.userId = userId;
         this.email = email;
         this.name = name;

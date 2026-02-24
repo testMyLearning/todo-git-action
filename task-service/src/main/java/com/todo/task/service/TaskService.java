@@ -1,12 +1,16 @@
 package com.todo.task.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todo.common.dto.CreateTaskRequest;
 import com.todo.common.dto.TaskDto;
 import com.todo.common.dto.UpdateTaskRequest;
-import com.todo.common.dto.UserDto;
 import com.todo.common.enums.StatusTask;
+import com.todo.task.entity.OutboxEvent;
 import com.todo.task.entity.Task;
+import com.todo.common.event.TaskCreatedEvent;
 import com.todo.task.mapper.TaskMapper;
+import com.todo.task.repository.OutboxRepository;
 import com.todo.task.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,15 +32,14 @@ import java.util.UUID;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-    private final TaskMapper taskMapper;  // ← инжектим маппер
-
-    /**
+    private final TaskMapper taskMapper;
+    private final OutboxRepository outboxRepository;
+    private final ObjectMapper objectMapper;
+        /**
      * Получить все задачи пользователя
      */
     public List<TaskDto> getUserTasks(Long userId) {
         log.info("Getting tasks for user: {}", userId);
-
-
         List<Task> tasks = taskRepository.findByUserId(userId);
         return taskMapper.toDtoList(tasks);  // ← используем маппер для списка
     }
@@ -60,6 +63,27 @@ public class TaskService {
         Task task = taskMapper.toEntity(request);
         task.setUserId(userId);
         task = taskRepository.save(task);
+
+        TaskCreatedEvent event = new TaskCreatedEvent(task.getId()
+                , userId
+                , task.getName()
+                , task.getStatus().name()
+                , task.getDeadline());
+
+        try {
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .aggregateId(task.getId().toString())
+                    .eventType("TASK_CREATED")
+                    .service("task-service")
+                    .payload(objectMapper.writeValueAsString(event))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxRepository.save(outboxEvent);
+            log.info("Saved event to outbox for task: {}", task.getId());
+
+        } catch (RuntimeException | JsonProcessingException e) {
+            throw new RuntimeException("Ошибка отправки задачи в кafka");
+        }
 
         log.info("Task created with id: {}", task.getId());
         return taskMapper.toDto(task);

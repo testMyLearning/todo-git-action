@@ -39,6 +39,7 @@
         <module>api-gateway</module>
         <module>eureka-server</module>
         <module>admin-server</module>
+        <module>analytics-service</module>
     </modules>
 
     <dependencyManagement>

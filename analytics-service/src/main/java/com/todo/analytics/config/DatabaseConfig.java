@@ -1,10 +1,9 @@
-package com.todo.task.config;
+package com.todo.analytics.config;
 
 import com.todo.common.security.SecretService;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -19,7 +18,7 @@ public class DatabaseConfig {
     public DataSource dataSource(){
         HikariConfig config = new HikariConfig();
 
-                config.setJdbcUrl("jdbc:postgresql://pgbouncer-task:6434/analytics_db");
+                config.setJdbcUrl("jdbc:postgresql://pgbouncer-analytics:6432/analysis_db");
                 config.setUsername(SecretService.getSecret("db_user"));
                 config.setPassword(SecretService.getSecret("db_password"));
                // config.setDriverClassName("org.postgresql.Driver");

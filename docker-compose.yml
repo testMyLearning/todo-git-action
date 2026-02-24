@@ -6,6 +6,7 @@ networks:
 volumes:
   user-data:
   task-data:
+  analytics-data:
 
 secrets:
   db_user:
@@ -180,6 +181,7 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+
   admin-server:
     build:
       context: .
@@ -198,3 +200,54 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+
+  postgres-analytics:
+    image: postgres:15.8
+    secrets:
+      - db_user
+      - db_password
+    environment:
+      POSTGRES_DB: analytics_db
+      POSTGRES_USER: postgres        # ← ОБЯЗАТЕЛЬНО!
+      POSTGRES_PASSWORD: postgres
+      #POSTGRES_USER_FILE: /run/secrets/db_user
+      #POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - analytics-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: Dockerfile
+    image: analytics_service:latest
+    ports:
+      - "8085:8085"
+    depends_on:
+      - postgres-analytics  # ✅ Только своя БД
+        - eureka-server
+        - kafka
+    volumes:
+      - ./analytics-service/src:/app/analytics-service/src
+      - ./common-config:/common-config  # ✅ Общая конфигурация
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-analytics:5432/analytics_db
+      SPRING_DATASOURCE_USERNAME_FILE: /run/secrets/db_user
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092  # ✅ Адрес Kafka
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+

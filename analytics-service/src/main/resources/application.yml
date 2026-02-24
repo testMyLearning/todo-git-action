@@ -3,13 +3,11 @@ server:
 
 spring:
   application:
-    name: task-service
+    name: analytics-service
   config:
     import:
       - optional:file:/common-config/application-devtools.yml
       - optional:file:/common-config/application-actuator.yaml
-
-
 
   jpa:
     hibernate:
@@ -20,6 +18,17 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+  kafka:
+    bootstrap-servers:
+      - kafka:9092
+    consumer:
+      group-id: analytics-service
+      max-poll-records: 50
+      enable-auto-commit: false
+    listener:
+      concurrency: 3
+      type: BATCH
+      ack-mode: MANUAL_IMMEDIATE
 
 eureka:
   client:
@@ -35,4 +44,9 @@ eureka:
     lease-expiration-duration-in-seconds: 90  # Через сколько удалить, если нет heartbeats
 logging:
   level:
-    com.todo: DEBUG
+    com.todo.analytics: DEBUG
+    org.springframework.kafka: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
