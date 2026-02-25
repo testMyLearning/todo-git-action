@@ -18,11 +18,6 @@ import java.util.concurrent.CompletableFuture;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, UUID> {
 
-    List<Task> findByUserId(Long userId);
-
-    List<Task> findByUserIdAndStatus(Long userId, String status);
-
-    boolean existsByIdAndUserId(UUID id, Long userId);
 
     @Async
     @Transactional(readOnly = true)
@@ -33,16 +28,19 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     CompletableFuture<Task> saveAsync(Task task);
 
     @Async
-    @Transactional
-    @Query("Select t from Task t where t.status=:status and t.userId= :userId")
-    CompletableFuture<List<Task>> findTaskByStatusAndUserId(@Param(value="status")String status,
-                                                               @Param(value = "userId") Long userId);
-    @Async
-    @Transactional
-    @Query("Select t from Task t where t.status=:status")
-    CompletableFuture<List<Task>> findTaskByStatus(@Param(value="status")String status);
-    @Async
-    @Transactional
-    @Query("Select t from Task t where t.userId = :userId")
-    CompletableFuture<List<Task>> findTaskByUserId(@Param(value = "userId") Long userId);
+    CompletableFuture<Task> findByIdAsync(UUID taskId);
+
+//    @Async
+//    @Transactional
+//    @Query("Select t from Task t where t.status=:status and t.userId= :userId")
+//    CompletableFuture<List<Task>> findTaskByStatusAndUserId(@Param(value="status")String status,
+//                                                               @Param(value = "userId") Long userId);
+//    @Async
+//    @Transactional
+//    @Query("Select t from Task t where t.status=:status")
+//    CompletableFuture<List<Task>> findTaskByStatus(@Param(value="status")String status);
+//    @Async
+//    @Transactional
+//    @Query("Select t from Task t where t.userId = :userId")
+//    CompletableFuture<List<Task>> findTaskByUserId(@Param(value = "userId") Long userId);
 }

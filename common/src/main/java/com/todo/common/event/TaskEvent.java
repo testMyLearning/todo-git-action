@@ -9,15 +9,15 @@ import java.util.UUID;
 
 @Getter
 @Setter
-public class TaskCreatedEvent extends BaseEvent {
+public class TaskEvent extends BaseEvent {
     private UUID taskId;
     private Long userId;
     private String taskName;
     private String status;
     private LocalDate deadline;
 
-    public TaskCreatedEvent(UUID taskId, Long userId, String taskName, String status, LocalDate deadline) {
-        super(taskId.toString(),"TASK_CREATED", Instant.now(),"task-service");
+    public TaskEvent(UUID taskId, Long userId, String taskName, String status, LocalDate deadline, String eventType, String service) {
+        super(taskId.toString(),eventType, Instant.now(),service);
         this.taskId = taskId;
         this.userId = userId;
         this.taskName = taskName;

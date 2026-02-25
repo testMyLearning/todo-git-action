@@ -5,7 +5,8 @@ import com.todo.analytics.entity.DailyTaskStats;
 import com.todo.analytics.entity.DeadlineAlert;
 import com.todo.analytics.repository.DeadlineAlertRepository;
 import com.todo.analytics.repository.TaskAnalyticsRepository;
-import com.todo.common.event.TaskCreatedEvent;
+import com.todo.common.enums.StatusTask;
+import com.todo.common.event.TaskEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -29,10 +30,10 @@ public class TaskEventConsumer {
     @KafkaListener(topics = "TASK_CREATED", groupId = "analytics-service")
     @Transactional
     public void handleTaskCreated(List<String> batch, Acknowledgment ack) {
-        for (String message : batch) {
-            try {
 
-                TaskCreatedEvent event = objectMapper.readValue(message, TaskCreatedEvent.class);
+        try {
+            for (String message : batch) {
+                TaskEvent event = objectMapper.readValue(message, TaskEvent.class);
 
                 // Получаем статистику для этого пользователя на сегодня
                 LocalDate today = LocalDate.now();
@@ -48,13 +49,46 @@ public class TaskEventConsumer {
                 // Если не обрабатывали - обрабатываем
                 taskCreatedForStats(event, stats);  // Передаем уже полученную stats
                 taskCreatedForAlert(event);
-                ack.acknowledge();
-            } catch (Exception e) {
-                log.error("Ошибка при обработке события TASK_CREATED", e);
+
             }
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Ошибка при обработке события TASK_CREATED", e);
         }
     }
-//    @KafkaListener(topics = "TASK_COMPLETED", groupId = "analytics-service")
+
+    @KafkaListener(topics = "TASK_UPDATED", groupId = "analytics-service")
+    @Transactional
+    public void handleTaskUpdated(List<String> batch, Acknowledgment ack) {
+
+        try {
+            for (String message : batch) {
+                TaskEvent event = objectMapper.readValue(message, TaskEvent.class);
+
+                // Получаем статистику для этого пользователя на сегодня
+                LocalDate today = LocalDate.now();
+                DailyTaskStats stats = getOrCreateStats(event.getUserId(), today);
+
+                // Проверяем, не обрабатывали ли уже ЭТО КОНКРЕТНОЕ событие
+                if (event.getEventId().equals(stats.getLastEventId())) {
+                    log.info("Событие update {} уже обработано для пользователя {}, пропускаем",
+                            event.getEventId(), event.getUserId());
+                    return;
+                }
+
+                // Если не обрабатывали - обрабатываем
+                taskUpdatedForStats(event, stats);  // Передаем уже полученную stats
+                taskUpdatedForAlert(event);
+
+            }
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Ошибка при обработке события TASK_UPDATED", e);
+        }
+    }
+
+
+    //    @KafkaListener(topics = "TASK_COMPLETED", groupId = "analytics-service")
 //    @Transactional
 //    public void handleTaskCompleted(String message) {
 //        try {
@@ -85,32 +119,74 @@ public class TaskEventConsumer {
                     return stats;
                 });
     }
-    private void taskCreatedForStats(TaskCreatedEvent event, DailyTaskStats stats){
-            log.info("Получено событие от пользователя {} с задачей {} для статистики.",
-                    event.getTaskId(),event.getTaskName());
-            stats.setLastUpdated(LocalDateTime.now());
-            stats.setTotalTasks(stats.getTotalTasks()+1);
-            stats.setLastEventId(event.getEventId());
-            taskAnalyticsRepository.save(stats);
+
+    private void taskCreatedForStats(TaskEvent event, DailyTaskStats stats) {
+        log.info("Получено событие от пользователя {} с задачей {} для статистики.",
+                event.getTaskId(), event.getTaskName());
+        stats.setLastUpdated(LocalDateTime.now());
+        stats.setTotalTasks(stats.getTotalTasks() + 1);
+        stats.setLastEventId(event.getEventId());
+        taskAnalyticsRepository.save(stats);
         log.info("аналитика сохранена из TASK_CREATED");
 
     }
-    private void taskCreatedForAlert(TaskCreatedEvent event){
-            log.info("Получено событие от пользователя {} с задачей {} для алерта",
-                    event.getTaskId(),event.getTaskName());
-            LocalDate today = LocalDate.now();
-            DeadlineAlert alert = DeadlineAlert.builder()
-                    .taskId(event.getTaskId())
-                    .userId(event.getUserId())
-                    .taskName(event.getTaskName())
-                    .deadline(event.getDeadline())
-                    .status(event.getStatus())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            alertRepository.save(alert);
+
+    private void taskCreatedForAlert(TaskEvent event) {
+        log.info("Получено событие от пользователя {} с задачей {} для алерта",
+                event.getTaskId(), event.getTaskName());
+        LocalDate today = LocalDate.now();
+        DeadlineAlert alert = DeadlineAlert.builder()
+                .taskId(event.getTaskId())
+                .userId(event.getUserId())
+                .taskName(event.getTaskName())
+                .deadline(event.getDeadline())
+                .status(event.getStatus())
+                .alertSent(false)
+                .updatedAt(LocalDateTime.now())
+                .build();
+        alertRepository.save(alert);
         log.info("deadline сохранен из TASK_CREATED");
+    }
+
+    private void taskUpdatedForStats(TaskEvent event, DailyTaskStats stats) {
+        log.info("Получено событие от пользователя {} с задачей {} для статистики.",
+                event.getTaskId(), event.getTaskName());
+        if(event.getStatus().equals("COMPLETED")){
+            stats.setCompletedTasks(stats.getCompletedTasks()+1);
         }
+        stats.setLastUpdated(LocalDateTime.now());
+        stats.setLastEventId(event.getEventId());
+        taskAnalyticsRepository.save(stats);
+        log.info("аналитика сохранена из TASK_UPDATE");
+
+    }
+
+    private void taskUpdatedForAlert(TaskEvent event) {
+        log.info("Получено событие от пользователя {} с задачей {} для апдейта алерта",
+                event.getTaskId(), event.getTaskName());
+        LocalDate today = LocalDate.now();
+        DeadlineAlert alert = alertRepository.findByTaskId(event.getTaskId()).orElseThrow(() -> new RuntimeException("ошибка в поиске алерта в методе апдейт"));
+        if (event.getStatus().equals("COMPLETED")) {
+            log.info("Задача уже завершена");
+            return;
+        }
+        if (!event.getDeadline().equals(alert.getDeadline())) {
+            alert.setDeadline(event.getDeadline());
+            alert.setAlertSent(false);
+            alert.setUpdatedAt(LocalDateTime.now());
+            alertRepository.save(alert);
+            log.info("Алерт обновлен, флаг отправки сброшен");
+        } else {
+            log.info(("Дедлайн задачи совпадает со старым дэйлайном."));
 
 
+        }
+    }
 }
+
+
+
+
+
+
 

@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name="deadline_alerts")
+@Table(name="deadline_alerts", uniqueConstraints = @UniqueConstraint(columnNames = {"task_id"}))
 @Builder
 @NoArgsConstructor  // Для JPA
 @AllArgsConstructor

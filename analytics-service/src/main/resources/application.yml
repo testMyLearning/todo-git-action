@@ -20,11 +20,13 @@ spring:
 
   kafka:
     bootstrap-servers:
-      - kafka:9092
+      - kafka:29092
     consumer:
       group-id: analytics-service
       max-poll-records: 50
       enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
       concurrency: 3
       type: BATCH

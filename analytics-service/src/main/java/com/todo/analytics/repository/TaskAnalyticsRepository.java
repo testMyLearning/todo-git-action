@@ -17,5 +17,5 @@ public interface TaskAnalyticsRepository extends JpaRepository<DailyTaskStats, L
 
     List<DailyTaskStats> findByUserIdOrderByDateDesc(Long userId);
 
-    Optional<UUID> findByLastEventId();
+
 }

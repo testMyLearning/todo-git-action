@@ -7,6 +7,9 @@ volumes:
   user-data:
   task-data:
   analytics-data:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
 
 secrets:
   db_user:
@@ -249,5 +252,106 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+  # ==================== ZOOKEEPER (нужен для Kafka 3.3.11) ====================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.3  # Совместим с Kafka 3.3.11
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_INIT_LIMIT: 5
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - microservices-net
+    healthcheck:
+      test: [ "CMD", "nc", "-vz", "localhost", "2181" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==================== KAFKA 3.3.11 ====================
+  kafka:
+    image: confluentinc/cp-kafka:7.3.3  # Соответствует Kafka 3.3.11
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      # Подключение к ZooKeeper (обязательно!)
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      # ID брокера
+      KAFKA_BROKER_ID: 1
+
+      # Настройки слушателей
+      KAFKA_LISTENERS: |
+        PLAINTEXT://0.0.0.0:9092,
+        PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: |
+        PLAINTEXT://kafka:29092,
+        PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: |
+        PLAINTEXT:PLAINTEXT,
+        PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # Репликация (для разработки = 1)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      # Настройки топиков
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      # Настройки хранения
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+
+      # Настройки потребителей
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      # Сжатие
+      KAFKA_COMPRESSION_TYPE: producer
+
+      # Подключение к ZooKeeper (доп. настройки)
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 6000
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 6000
+
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - microservices-net
+    healthcheck:
+      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==================== KAFKA UI (для мониторинга) ====================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8086:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_JMXPORT: 9999
+    networks:
+      - microservices-net
+
+
+
 
 

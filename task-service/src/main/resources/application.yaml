@@ -19,7 +19,23 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  kafka:
+    producer:
+      # Сериализаторы (превращают объекты в байты)
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+      # Настройки надежности
+      retries: 3                    # Повторить 3 раза при ошибке
+      acks: all                     # Ждать подтверждения от всех реплик
+
+      # Настройки производительности
+      batch-size: 16384             # 16 KB - размер батча
+      linger-ms: 5                   # Ждать 5 мс перед отправкой
+      buffer-memory: 33554432        # 32 MB - буфер памяти
+
+      # Сжатие (экономит трафик)
+      compression-type: snappy
 
 eureka:
   client:
