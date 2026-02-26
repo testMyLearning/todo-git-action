@@ -18,9 +18,11 @@ public class DatabaseConfig {
     public DataSource dataSource(){
         HikariConfig config = new HikariConfig();
 
-                config.setJdbcUrl("jdbc:postgresql://pgbouncer-analytics:6432/analytics_db");
-                config.setUsername(SecretService.getSecret("db_user"));
-                config.setPassword(SecretService.getSecret("db_password"));
+                config.setJdbcUrl("jdbc:postgresql://pgbouncer-analytics:5432/analytics_db");
+//                config.setUsername(SecretService.getSecret("db_user"));
+//                config.setPassword(SecretService.getSecret("db_password"));
+        config.setUsername("postgres");
+        config.setPassword("postgres");
                // config.setDriverClassName("org.postgresql.Driver");
         config.setMaximumPoolSize(100);        // ← Сколько одновременных соединений
         config.setMinimumIdle(10);             // ← Минимум в простое

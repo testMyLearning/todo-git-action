@@ -42,5 +42,5 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private Instant publishedAt;
     @Column(name="retry_count")
-    private Integer retryCount=0;
+    private Integer retryCount;
 }

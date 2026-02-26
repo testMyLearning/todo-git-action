@@ -8,6 +8,7 @@ spring:
     import:
       - optional:file:/common-config/application-devtools.yml
       - optional:file:/common-config/application-actuator.yaml
+      - optional:file:/common-config/application-openapi.yml
 
   jpa:
     hibernate:
@@ -19,8 +20,7 @@ spring:
         format_sql: true
 
   kafka:
-    bootstrap-servers:
-      - kafka:29092
+    bootstrap-servers: kafka:9092
     consumer:
       group-id: analytics-service
       max-poll-records: 50

@@ -8,6 +8,7 @@ spring:
     import:
       - optional:file:/common-config/application-devtools.yml
       - optional:file:/common-config/application-actuator.yaml
+      - optional:file:/common-config/application-openapi.yml
   kafka:
     bootstrap-servers: kafka:9092  # или localhost:9092 для разработки
     producer:

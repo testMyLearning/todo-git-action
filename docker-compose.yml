@@ -10,6 +10,7 @@ volumes:
   zookeeper-data:
   zookeeper-log:
   kafka-data:
+  common-config:
 
 secrets:
   db_user:
@@ -97,6 +98,7 @@ services:
       - eureka-server
     volumes:
       - ./user-service/src:/app/user-service/src
+      - ./common-config:/common-config
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
@@ -126,6 +128,7 @@ services:
       - eureka-server
     volumes:
       - ./task-service/src:/app/task-service/src
+      - ./common-config:/common-config
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-task:5432/task_db
@@ -155,6 +158,7 @@ services:
       - eureka-server
     volumes:
       - ./api-gateway/src:/app/api-gateway/src
+      - ./common-config:/common-config
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       USER_SERVICE_URL: http://user-service:8081
@@ -228,23 +232,20 @@ services:
 
   analytics-service:
     build:
-      context: ./analytics-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: analytics-service/Dockerfile
     image: analytics_service:latest
     ports:
       - "8085:8085"
     depends_on:
       - postgres-analytics  # ✅ Только своя БД
-        - eureka-server
-        - kafka
+      - eureka-server
+      - kafka
     volumes:
       - ./analytics-service/src:/app/analytics-service/src
       - ./common-config:/common-config  # ✅ Общая конфигурация
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-analytics:5432/analytics_db
-      SPRING_DATASOURCE_USERNAME_FILE: /run/secrets/db_user
-      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092  # ✅ Адрес Kafka
     networks:
       - microservices-net
@@ -253,101 +254,50 @@ services:
       restart_policy:
         condition: on-failure
   # ==================== ZOOKEEPER (нужен для Kafka 3.3.11) ====================
+  # ==================== ZOOKEEPER (минимально) ====================
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.3  # Совместим с Kafka 3.3.11
+    image: confluentinc/cp-zookeeper:7.3.3
     container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-      ZOOKEEPER_SYNC_LIMIT: 2
-      ZOOKEEPER_INIT_LIMIT: 5
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-log:/var/lib/zookeeper/log
+      ZOOKEEPER_CLIENT_PORT: 2181           # Порт, который слушает ZooKeeper
+      ZOOKEEPER_TICK_TIME: 2000              # Базовый таймер (мс)
     networks:
       - microservices-net
-    healthcheck:
-      test: [ "CMD", "nc", "-vz", "localhost", "2181" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
-  # ==================== KAFKA 3.3.11 ====================
+  # ==================== KAFKA (минимально) ====================
   kafka:
-    image: confluentinc/cp-kafka:7.3.3  # Соответствует Kafka 3.3.11
+    image: confluentinc/cp-kafka:7.3.3
     container_name: kafka
     depends_on:
-      zookeeper:
-        condition: service_healthy
+      - zookeeper
     ports:
       - "9092:9092"
     environment:
-      # Подключение к ZooKeeper (обязательно!)
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-
-      # ID брокера
+      # ID брокера (может быть любым числом)
       KAFKA_BROKER_ID: 1
 
-      # Настройки слушателей
-      KAFKA_LISTENERS: |
-        PLAINTEXT://0.0.0.0:9092,
-        PLAINTEXT_HOST://0.0.0.0:29092
-      KAFKA_ADVERTISED_LISTENERS: |
-        PLAINTEXT://kafka:29092,
-        PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: |
-        PLAINTEXT:PLAINTEXT,
-        PLAINTEXT_HOST:PLAINTEXT
+      # Подключение к ZooKeeper
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      # Слушатели: какой адрес и порт слушает Kafka внутри контейнера
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+
+      # Рекламируемый слушатель – адрес, который Kafka сообщает клиентам
+      # Здесь `kafka:9092` – это имя сервиса в Docker, по которому к Kafka будут обращаться другие сервисы
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+
+      # Протокол (plaintext = без шифрования)
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+
+      # Имя слушателя для межброкерского общения (у нас один брокер)
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
-      # Репликация (для разработки = 1)
+      # Фактор репликации (для одного брокера = 1)
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-
-      # Настройки топиков
-      KAFKA_NUM_PARTITIONS: 3
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-
-      # Настройки хранения
-      KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
-
-      # Настройки потребителей
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-
-      # Сжатие
-      KAFKA_COMPRESSION_TYPE: producer
-
-      # Подключение к ZooKeeper (доп. настройки)
-      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 6000
-      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 6000
-
     volumes:
       - kafka-data:/var/lib/kafka/data
-    networks:
-      - microservices-net
-    healthcheck:
-      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  # ==================== KAFKA UI (для мониторинга) ====================
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    depends_on:
-      - kafka
-    ports:
-      - "8086:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-      KAFKA_CLUSTERS_0_JMXPORT: 9999
     networks:
       - microservices-net
 

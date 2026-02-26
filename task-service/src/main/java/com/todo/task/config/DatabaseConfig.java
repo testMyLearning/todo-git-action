@@ -19,7 +19,7 @@ public class DatabaseConfig {
     public DataSource dataSource(){
         HikariConfig config = new HikariConfig();
 
-                config.setJdbcUrl("jdbc:postgresql://pgbouncer-task:6434/analytics_db");
+                config.setJdbcUrl("jdbc:postgresql://pgbouncer-task:5432/task_db");
                 config.setUsername(SecretService.getSecret("db_user"));
                 config.setPassword(SecretService.getSecret("db_password"));
                // config.setDriverClassName("org.postgresql.Driver");

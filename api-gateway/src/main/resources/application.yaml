@@ -8,6 +8,7 @@ spring:
     import:
     - optional:file:/common-config/application-actuator.yaml
     - optional:file:/common-config/application-devtools.yml
+    - optional:file:/common-config/application-openapi.yml
 
 
 
@@ -40,6 +41,27 @@ spring:
             - Path=/api/auth/register, /api/auth/login
           filters:
             - RewritePath=/api/auth/(?<path>.*), /api/users/$\{path}
+
+        - id: user-service-openapi
+          uri: lb://user-service
+          predicates:
+            - Path=/v3/api-docs/user-service
+          filters:
+            - RewritePath=/v3/api-docs/user-service, /api-docs
+
+        - id: task-service-openapi
+          uri: lb://task-service
+          predicates:
+            - Path=/v3/api-docs/task-service
+          filters:
+            - RewritePath=/v3/api-docs/task-service, /api-docs
+
+        - id: analytics-service-openapi
+          uri: lb://analytics-service
+          predicates:
+            - Path=/v3/api-docs/analytics-service
+          filters:
+            - RewritePath=/v3/api-docs/analytics-service, /api-docs
 
 
 

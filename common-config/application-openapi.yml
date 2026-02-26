@@ -1,0 +1,16 @@
+springdoc:
+  api-docs:
+    path: /api-docs  # URL для OpenAPI JSON (например, /api-docs)
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html  # URL для Swagger UI
+    enabled: true
+    operations-sorter: method  # Сортировка операций по HTTP методу
+    tags-sorter: alpha  # Сортировка тегов по алфавиту
+    try-it-out-enabled: true  # Кнопка "Try it out"
+    filter: true  # Поиск по операциям
+    deep-linking: true  # Глубокие ссылки
+    display-request-duration: true  # Показывать время выполнения запроса
+  show-actuator: false  # Не показывать endpoint'ы actuator
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json

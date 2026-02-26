@@ -1,26 +1,26 @@
-from eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 workdir /app
 ARG VERSION
 
+# Копируем Maven wrapper
 COPY mvnw .
 COPY .mvn .mvn
-COPY pom.xml .
-COPY common/pom.xml common/
-COPY analytics-service/pom.xml analytics-service/
 RUN chmod +x mvnw
 
-# Скачиваем зависимости (кэширование)
-RUN ./mvnw dependency:go-offline -B
-# копируем проект
-COPY common common
-COPY analytics-service analytics-service
+# Копируем ВСЕ POM-файлы СРАЗУ
+COPY pom.xml .
+COPY common/pom.xml common/pom.xml
+COPY analytics-service/pom.xml analytics-service/pom.xml
 
-# Устанавливаем родительский POM
+# Устанавливаем родительский POM (теперь видит все модули)
 RUN ./mvnw clean install -N -DskipTests
 
+# Копируем исходники common и устанавливаем
+COPY common common
+RUN ./mvnw -f common/pom.xml clean install -DskipTests
 
-
-# собираем проект
+# Копируем исходники analytics-service и собираем
+COPY analytics-service analytics-service
 RUN ./mvnw -f analytics-service/pom.xml clean package -DskipTests
 
 

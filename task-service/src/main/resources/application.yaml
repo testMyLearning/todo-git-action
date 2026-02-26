@@ -1,5 +1,5 @@
 server:
-  port: 8085
+  port: 8082
 
 spring:
   application:
@@ -8,6 +8,7 @@ spring:
     import:
       - optional:file:/common-config/application-devtools.yml
       - optional:file:/common-config/application-actuator.yaml
+      - optional:file:/common-config/application-openapi.yml
 
 
 
@@ -51,4 +52,6 @@ eureka:
     lease-expiration-duration-in-seconds: 90  # Через сколько удалить, если нет heartbeats
 logging:
   level:
-    com.todo: DEBUG
+    org.springframework.security: DEBUG      # Логи безопасности (почему 403)
+    com.todo.task.config: DEBUG              # Ваши фильтры и конфигурация
+    org.springframework.web: DEBUG

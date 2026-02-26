@@ -2,6 +2,7 @@ package com.todo.task;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 
 @SpringBootApplication(scanBasePackages = {
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 })
 public class TaskServiceApplication {
     public static void main(String[] args) {
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
         SpringApplication.run(TaskServiceApplication.class, args);
     }
 }
