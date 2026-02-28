@@ -1,5 +1,5 @@
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-jammy
 ARG VERSION
 COPY common-config /common-config/
 COPY api-gateway/target/api-gateway-${VERSION}.jar /app.jar
