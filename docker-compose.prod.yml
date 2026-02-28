@@ -1,0 +1,284 @@
+# docker-compose.prod.yml
+networks:
+  microservices-net:
+    driver: overlay  # Swarm использует overlay сеть
+
+volumes:
+  user-data:
+  task-data:
+  analytics-data:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  # common-config не нужен как volume - конфиги теперь в образе!
+
+secrets:
+  db_user:
+    external: true  # Секреты созданы в Swarm отдельно
+  db_password:
+    external: true
+  jwt_secret:
+    external: true
+
+services:
+  # ==================== СЕРВИСЫ ДЛЯ ОРКЕСТРАЦИИ ====================
+  eureka-server:
+    image: ${DOCKER_USERNAME}/eureka-server:${TAG:-latest}  # ← image вместо build!
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices-net
+    environment:
+      - EUREKA_INSTANCE_HOSTNAME=eureka-server
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+
+  # ==================== БАЗЫ ДАННЫХ ====================
+  postgres-user:
+    image: postgres:15.8  # Оставляем, это готовый образ
+    secrets:
+      - db_user
+      - db_password
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - target: 5432
+        published: 5433
+        mode: host  # host mode для производительности
+    volumes:
+      - user-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+
+  postgres-task:
+    image: postgres:15.8
+    secrets:
+      - db_user
+      - db_password
+    environment:
+      POSTGRES_DB: task_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - target: 5432
+        published: 5434
+        mode: host
+    volumes:
+      - task-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+
+  postgres-analytics:
+    image: postgres:15.8
+    secrets:
+      - db_user
+      - db_password
+    environment:
+      POSTGRES_DB: analytics_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - target: 5432
+        published: 5435
+        mode: host
+    volumes:
+      - analytics-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+
+  # ==================== МИКРОСЕРВИСЫ ====================
+  user-service:
+    image: ${DOCKER_USERNAME}/user-service:${TAG:-latest}  # ← image из Docker Hub!
+    secrets:
+      - db_user
+      - db_password
+      - jwt_secret
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres-user
+      - eureka-server
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
+      SPRING_DATASOURCE_USERNAME_FILE: /run/secrets/db_user
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1  # ← Можно увеличить реплики!
+      restart_policy:
+        condition: on-failure
+
+
+  task-service:
+    image: ${DOCKER_USERNAME}/task-service:${TAG:-latest}
+    secrets:
+      - db_user
+      - db_password
+      - jwt_secret
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres-task
+      - eureka-server
+      - kafka
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-task:5432/task_db
+      SPRING_DATASOURCE_USERNAME_FILE: /run/secrets/db_user
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      USER_SERVICE_URL: http://user-service:8081
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+
+  analytics-service:
+    image: ${DOCKER_USERNAME}/analytics-service:${TAG:-latest}
+    ports:
+      - "8085:8085"
+    depends_on:
+      - postgres-analytics
+      - eureka-server
+      - kafka
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1  # Analytics может быть в единственном экземпляре
+      restart_policy:
+        condition: on-failure
+
+  api-gateway:
+    image: ${DOCKER_USERNAME}/api-gateway:${TAG:-latest}
+    secrets:
+      - jwt_secret
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - task-service
+      - eureka-server
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      USER_SERVICE_URL: http://user-service:8081
+      TASK_SERVICE_URL: http://task-service:8082
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1  # Gateway можно реплицировать!
+      resources:
+        limits:
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+     
+
+  frontend:
+    image: ${DOCKER_USERNAME}/frontend:${TAG:-latest}
+    ports:
+      - "3000:80"
+    networks:
+      - microservices-net
+    depends_on:
+      - api-gateway
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  admin-server:
+    image: ${DOCKER_USERNAME}/admin-server:${TAG:-latest}
+    ports:
+      - "9090:9090"
+    depends_on:
+      - eureka-server
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_BOOT_ADMIN_DISCOVERY_ENABLED: "true"
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  # ==================== INFRASTRUCTURE ====================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.3
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.3
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - microservices-net
+    deploy:
+      replicas: 1
+
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mem
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9411/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      replicas: 1

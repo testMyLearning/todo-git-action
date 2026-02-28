@@ -14,6 +14,7 @@ import com.todo.task.entity.Task;
 import com.todo.task.mapper.TaskMapper;
 import com.todo.task.repository.OutboxRepository;
 import com.todo.task.repository.TaskRepository;
+import io.micrometer.observation.annotation.Observed;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Observed(name = "task.service")
 public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskMapper taskMapper;
@@ -57,7 +59,7 @@ public class TaskService {
             response.setLastPage(taskPage.isLast());
             return response;
     }
-
+@Observed(name = "create")
     @Transactional
     public TaskDto create(@Valid CreateTaskRequest request, Long userId) {
         Task task = taskMapper.toEntity(request);
@@ -70,7 +72,7 @@ public class TaskService {
         log.info("Task created with id: {}", savedTask.getId());
         return taskMapper.toDto(savedTask);
     }
-
+@Observed(name="update")
     @Transactional
     public TaskDto update(@Valid UpdateTaskRequest request, Long userId) {
         Task task = taskRepository.findById(request.id())
@@ -100,7 +102,7 @@ public class TaskService {
         log.info("Task updated with id: {}", savedTask.getId());
         return taskMapper.toDto(savedTask);
     }
-
+@Observed(name ="sendEvent")
     // Вынесли логику отправки события, чтобы не дублировать код
     private void sendEvent(Task task, Long userId, String eventType) {
         TaskEvent event = new TaskEvent(

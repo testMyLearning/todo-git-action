@@ -9,6 +9,7 @@ spring:
     - optional:file:/common-config/application-actuator.yaml
     - optional:file:/common-config/application-devtools.yml
     - optional:file:/common-config/application-openapi.yml
+    - optional:file:/common-config/application-resilience4j.yml
 
 
 
@@ -27,6 +28,10 @@ spring:
             - Path=/api/users/**
           filters:
             - name: JwtAuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: userServiceGateway
+                fallbackUri: forward:/fallback/users
 
         - id: task-service
           uri: lb://task-service  # ← ЯВНО с балансировкой!
@@ -34,6 +39,10 @@ spring:
             - Path=/api/tasks/**
           filters:
             - name: JwtAuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: taskServiceGateway
+                fallbackUri: forward:/fallback/tasks
 
         - id: public-auth
           uri: lb://user-service  # ← ТОЖЕ С БАЛАНСИРОВКОЙ!
@@ -62,6 +71,10 @@ spring:
             - Path=/v3/api-docs/analytics-service
           filters:
             - RewritePath=/v3/api-docs/analytics-service, /api-docs
+      httpclient:
+        wiretap: true
+      httpserver:
+        wiretap: true
 
 
 

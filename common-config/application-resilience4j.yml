@@ -1,0 +1,43 @@
+resilience4j:
+  circuitbreaker:
+    instances:
+      userServiceGateway: # Название circuit breaker'а, будет использоваться в коде
+        registerHealthIndicator: true # Чтобы видеть статус в Actuator
+        slidingWindowSize: 20 # Считать последние 20 вызовов
+        minimumNumberOfCalls: 10 # Минимум вызовов, чтобы начать анализ
+        failureRateThreshold: 40 # Если 40% вызовов упали с ошибкой
+        waitDurationInOpenState: 30s # Сколько ждать в Open состоянии
+        permittedNumberOfCallsInHalfOpenState: 5 # Сколько вызовов пустить в Half-Open
+        automaticTransitionFromOpenToHalfOpenEnabled: true # Переходить в Half-Open автоматом
+      taskServiceGateway:
+        registerHealthIndicator: true # Чтобы видеть статус в Actuator
+        slidingWindowSize: 20 # Считать последние 20 вызовов
+        minimumNumberOfCalls: 10 # Минимум вызовов, чтобы начать анализ
+        failureRateThreshold: 40 # Если 40% вызовов упали с ошибкой
+        waitDurationInOpenState: 30s # Сколько ждать в Open состоянии
+        permittedNumberOfCallsInHalfOpenState: 5 # Сколько вызовов пустить в Half-Open
+        automaticTransitionFromOpenToHalfOpenEnabled: true # Переходить в Half-Open автоматом
+
+
+
+  timelimiter:
+    instances:
+      userServiceGateway:
+        timeoutDuration: 3s # Максимальное время ожидания ответа 2 секунды
+      taskServiceGateway:
+        timeoutDuration: 5s
+
+
+  retry:
+    instances:
+      userService:
+        maxAttempts: 3 # Повторить 3 раза
+        waitDuration: 500ms # Подождать 500мс перед первым повтором
+        # Экспоненциальная задержка: 500ms, 1s, 2s
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+        # Не повторять, если сервер вернул 5xx ошибку (это обработает Circuit Breaker)
+        ignore-exceptions:
+          - org.springframework.web.client.HttpServerErrorException

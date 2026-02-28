@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-jammy
 ARG VERSION
 WORKDIR /app
 COPY admin-server/target/admin-server-${VERSION}.jar app.jar

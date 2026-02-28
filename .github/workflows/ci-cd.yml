@@ -1,0 +1,106 @@
+name: CI/CD Pipeline for Todo Microservices
+
+# ========== КОГДА ЗАПУСКАЕМ ==========
+on:
+  push:
+    branches: [ "main" ]        # При пуше в main
+  pull_request:
+    branches: [ "main" ]        # При создании PR
+
+# ========== ПЕРЕМЕННЫЕ ==========
+env:
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
+# ========== РАБОТЫ (JOBS) ==========
+jobs:
+  # ------------------------------------
+  # JOB 1: ТОЛЬКО COMMON
+  # ------------------------------------
+  build-common:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v3
+
+      - name: Установить Java 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Собрать и установить common в кэш
+        run: |
+          cd common
+          mvn clean install -DskipTests
+
+  # ------------------------------------
+  # JOB 2: ВСЕ СЕРВИСЫ (ждут common)
+  # ------------------------------------
+  build-services:
+    needs: build-common                    # ← ЖДЕМ COMMON!
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [user-service, task-service, analytics-service, api-gateway]
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v3
+
+      - name: Установить Java 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Собрать сервис
+        run: |
+          cd ${{ matrix.service }}
+          mvn clean package -DskipTests
+
+      - name: Сохранить JAR
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/target/*.jar
+
+  # ------------------------------------
+  # JOB 3: DOCKER-ОБРАЗЫ (ждут сервисы)
+  # ------------------------------------
+  build-docker:
+    needs: build-services                   # ← ЖДЕМ ВСЕ СЕРВИСЫ!
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [user-service, task-service, analytics-service, api-gateway]
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v3
+
+      - name: Скачать JAR
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/target/
+
+      - name: Войти в Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Узнать версию из pom.xml
+        id: version
+        run: |
+          cd ${{ matrix.service }}
+          echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+
+      - name: Собрать и отправить образ
+        uses: docker/build-push-action@v4
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:${{ steps.version.outputs.version }}-${{ github.run_number }}

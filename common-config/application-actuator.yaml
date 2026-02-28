@@ -1,4 +1,11 @@
 management:
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
   endpoints:
     web:
       exposure:
@@ -25,3 +32,7 @@ info:
   app:
     name: ${spring.application.name}
     version: 1.0.0
+logging:
+  pattern:
+    # Добавляем traceId и spanId в логи
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

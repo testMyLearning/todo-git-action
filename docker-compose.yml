@@ -300,7 +300,23 @@ services:
       - kafka-data:/var/lib/kafka/data
     networks:
       - microservices-net
-
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"  # ← UI и API для приема трейсов
+    environment:
+      - STORAGE_TYPE=mem  # ← Храним трейсы в памяти (для разработки)
+      # Для продакшена лучше использовать Elasticsearch:
+      # - STORAGE_TYPE=elasticsearch
+      # - ES_HOSTS=elasticsearch:9200
+    networks:
+      - microservices-net
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9411/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 
 
