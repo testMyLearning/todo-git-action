@@ -120,6 +120,7 @@ public class TaskService {
                     .service(event.getService())
                     .payload(objectMapper.writeValueAsString(event))
                     .createdAt(LocalDateTime.now())
+                    .retryCount(0)
                     .build();
 
             outboxRepository.save(outboxEvent);

@@ -21,6 +21,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   kafka:
+    bootstrap-servers: kafka:9092
     producer:
       # Сериализаторы (превращают объекты в байты)
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

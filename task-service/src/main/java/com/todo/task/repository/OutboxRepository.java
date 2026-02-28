@@ -10,7 +10,8 @@ import java.util.List;
 
 
 public interface OutboxRepository extends JpaRepository<OutboxEvent, Long> {
-    @Query("select o from OutboxEvent o where o.publishedAt is null and o.retryCount<10 order by o.id ASC")
+    @Query(value = "SELECT * FROM outbox WHERE published_at IS NULL AND retry_count < 10 ORDER BY id ASC LIMIT ?1",
+            nativeQuery = true)
     List<OutboxEvent> findUnpublishedEvents(int limit);
     @Modifying
     @Query("DELETE FROM OutboxEvent e WHERE e.publishedAt < :before")

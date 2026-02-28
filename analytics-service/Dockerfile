@@ -24,7 +24,7 @@ COPY analytics-service analytics-service
 RUN ./mvnw -f analytics-service/pom.xml clean package -DskipTests
 
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-jammy
 ARG VERSION
 COPY --from=build /app/analytics-service/target/analytics-service-${VERSION}.jar /app.jar
 COPY common-config /common-config/
