@@ -27,16 +27,20 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+      - name: Install parent POM
+        run: |
+          mvn clean install -N -DskipTests
 
       - name: Собрать и установить common в кэш
         run: |
           cd common
           mvn clean install -DskipTests
+
       - name: сохраняем комон артефактом
         uses: actions/upload-artifact@v4
         with:
           name: common-jar
-          path: ~/.m2/repository/com/example/common/
+          path: ~/.m2/repository/
 
   # ------------------------------------
   # JOB 2: ВСЕ СЕРВИСЫ (ждут common)
@@ -46,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [user-service, task-service, analytics-service, api-gateway]
+        service: [user-service, task-service, analytics-service, api-gateway, eureka-server, admin-server]
     steps:
       - name: Скачать код
         uses: actions/checkout@v4
@@ -60,7 +64,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: common-jar
-          path: ~/.m2/repository/com/example/common/
+          path: ~/.m2/repository/
 
       - name: Собрать сервис
         run: |
@@ -81,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [user-service, task-service, analytics-service, api-gateway]
+        service: [user-service, task-service, analytics-service, api-gateway, eureka-server, admin-server]
     steps:
       - name: Скачать код
         uses: actions/checkout@v4
@@ -105,9 +109,10 @@ jobs:
           echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
 
       - name: Собрать и отправить образ
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.service }}
+          context: .
+          file: ./${{ matrix.service }}/Dockerfile
           push: true
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
